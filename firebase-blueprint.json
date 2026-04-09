@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "Item": {
+      "title": "Item",
+      "description": "An inventory item in the warehouse",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the item" },
+        "sku": { "type": "string", "description": "Stock Keeping Unit / Barcode" },
+        "category": { "type": "string", "description": "Category of the item" },
+        "quantity": { "type": "number", "description": "Current stock quantity" },
+        "location": { "type": "string", "description": "Physical location in the warehouse" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "imageUrl": { "type": "string", "format": "uri", "description": "URL to item image" },
+        "qrCode": { "type": "string", "description": "QR code data" }
+      },
+      "required": ["name", "sku", "quantity"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A record of stock movement (inbound/outbound)",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string", "description": "ID of the item" },
+        "type": { "type": "string", "enum": ["inbound", "outbound"], "description": "Type of transaction" },
+        "quantity": { "type": "number", "description": "Quantity moved" },
+        "userId": { "type": "string", "description": "ID of the user who performed the transaction" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the transaction occurred" },
+        "notes": { "type": "string", "description": "Optional notes" }
+      },
+      "required": ["itemId", "type", "quantity", "userId", "timestamp"]
+    },
+    "BorrowRecord": {
+      "title": "BorrowRecord",
+      "description": "A record of an item being borrowed",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string", "description": "ID of the item" },
+        "userId": { "type": "string", "description": "ID of the user borrowing the item" },
+        "borrowDate": { "type": "string", "format": "date-time", "description": "When the item was borrowed" },
+        "dueDate": { "type": "string", "format": "date-time", "description": "When the item is expected back" },
+        "returnDate": { "type": "string", "format": "date-time", "description": "When the item was actually returned" },
+        "status": { "type": "string", "enum": ["borrowed", "returned"], "description": "Current status" },
+        "notes": { "type": "string", "description": "Optional notes" }
+      },
+      "required": ["itemId", "userId", "borrowDate", "status"]
+    },
+    "User": {
+      "title": "User",
+      "description": "A user of the system",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Full name" },
+        "email": { "type": "string", "format": "email", "description": "Email address" },
+        "role": { "type": "string", "enum": ["admin", "staff"], "description": "User role" },
+        "photoUrl": { "type": "string", "format": "uri", "description": "Profile photo URL" }
+      },
+      "required": ["name", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/items/{itemId}": { "schema": "Item", "description": "Inventory items" },
+    "/transactions/{transactionId}": { "schema": "Transaction", "description": "Stock movement history" },
+    "/borrowRecords/{recordId}": { "schema": "BorrowRecord", "description": "Borrowing history" },
+    "/users/{userId}": { "schema": "User", "description": "User profiles" }
+  }
+}

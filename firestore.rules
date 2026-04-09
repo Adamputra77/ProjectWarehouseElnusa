@@ -1,0 +1,155 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: items
+    // Fields:
+    //   - name: string (required)
+    //   - sku: string (required)
+    //   - category: string
+    //   - quantity: number (required)
+    //   - location: string
+    //   - description: string
+    //   - imageUrl: string
+    //   - qrCode: string
+    //
+    // Collection: transactions
+    // Fields:
+    //   - itemId: string (required)
+    //   - itemName: string
+    //   - type: string (enum: ['inbound', 'outbound'])
+    //   - quantity: number (required)
+    //   - userId: string (required)
+    //   - userName: string
+    //   - timestamp: timestamp (required)
+    //   - notes: string
+    //
+    // Collection: borrowRecords
+    // Fields:
+    //   - itemId: string (required)
+    //   - itemName: string
+    //   - userId: string (required)
+    //   - userName: string
+    //   - borrowDate: timestamp (required)
+    //   - dueDate: timestamp
+    //   - returnDate: timestamp
+    //   - status: string (enum: ['borrowed', 'returned'])
+    //   - notes: string
+    //
+    // Collection: users
+    // Fields:
+    //   - name: string (required)
+    //   - email: string (required)
+    //   - role: string (enum: ['admin', 'staff'])
+    //   - photoUrl: string
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "rrajadinadam@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Domain Validators
+    function isValidItem(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.sku is string && data.sku.size() > 0 && data.sku.size() < 100 &&
+             data.quantity is number && data.quantity >= 0 &&
+             (!('category' in data) || (data.category is string && data.category.size() < 100)) &&
+             (!('location' in data) || (data.location is string && data.location.size() < 100)) &&
+             (!('description' in data) || (data.description is string && data.description.size() < 1000));
+    }
+
+    function isValidTransaction(data) {
+      return data.itemId is string &&
+             data.type in ['inbound', 'outbound'] &&
+             data.quantity is number && data.quantity > 0 &&
+             data.userId == request.auth.uid &&
+             data.timestamp == request.time &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 500));
+    }
+
+    function isValidBorrowRecord(data) {
+      return data.itemId is string &&
+             data.userId == request.auth.uid &&
+             data.status in ['borrowed', 'returned'] &&
+             data.borrowDate == request.time &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 500));
+    }
+
+    function isValidUser(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.role in ['admin', 'staff'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /items/{itemId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidItem(request.resource.data);
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quantity']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidTransaction(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /borrowRecords/{recordId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidBorrowRecord(request.resource.data);
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (isOwner(resource.data.userId) && request.resource.data.status == 'returned')
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (isOwner(userId) && request.resource.data.role == resource.data.role)
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
