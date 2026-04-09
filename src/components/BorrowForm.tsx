@@ -45,26 +45,29 @@ export function BorrowForm({ item, onSubmit, onCancel }: BorrowFormProps) {
       </DialogHeader>
 
       <div className="space-y-4 py-4">
-        <div className="space-y-2">
-          <Label>Item Details</Label>
-          <div className="p-3 rounded-md bg-muted text-sm">
-            <p><strong>SKU:</strong> {item.sku}</p>
-            <p><strong>Available:</strong> {item.quantity}</p>
+        <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-muted">
+          <div>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Item to Borrow</p>
+            <p className="text-lg font-black text-elnusa-blue">{item.name}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Available</p>
+            <p className="text-sm font-bold">{item.quantity} Units</p>
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="dueDate">Due Date (Optional)</Label>
+          <Label className="text-xs font-bold uppercase tracking-wider">Due Date (Optional)</Label>
           <Popover>
             <PopoverTrigger
               className={cn(
                 buttonVariants({ variant: "outline" }),
-                "w-full justify-start text-left font-normal",
+                "w-full justify-start text-left font-bold h-11",
                 !dueDate && "text-muted-foreground"
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+              {dueDate ? format(dueDate, "PPP") : <span>Pilih tanggal pengembalian</span>}
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
               <Calendar
@@ -78,14 +81,16 @@ export function BorrowForm({ item, onSubmit, onCancel }: BorrowFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="notes">Notes</Label>
-          <Input id="notes" name="notes" placeholder="Purpose of borrowing..." />
+          <Label htmlFor="notes" className="text-xs font-bold uppercase tracking-wider">Borrower Notes</Label>
+          <Input id="notes" name="notes" placeholder="Nama peminjam, keperluan, dsb." className="h-11" />
         </div>
       </div>
 
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" className="bg-elnusa-blue hover:bg-elnusa-blue/90">Confirm Borrowing</Button>
+      <DialogFooter className="gap-2 sm:gap-0">
+        <Button type="button" variant="ghost" onClick={onCancel} className="font-bold">Cancel</Button>
+        <Button type="submit" className="bg-elnusa-blue hover:bg-elnusa-blue/90 font-black uppercase tracking-widest">
+          Confirm Borrowing
+        </Button>
       </DialogFooter>
     </form>
   );

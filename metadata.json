@@ -1,5 +1,5 @@
 {
-  "name": "",
-  "description": "",
-  "requestFramePermissions": []
+  "name": "Elnusa Warehouse Management System",
+  "description": "Professional warehouse management system with AI insights, QR scanning, and real-time inventory tracking for Elnusa.",
+  "requestFramePermissions": ["camera"]
 }

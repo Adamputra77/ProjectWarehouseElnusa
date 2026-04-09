@@ -1,62 +1,66 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ScanLine, AlertCircle } from 'lucide-react';
 
 interface ScannerProps {
-  onScanSuccess: (decodedText: string) => void;
-  onScanFailure?: (error: string) => void;
-  fps?: number;
-  qrbox?: number;
-  aspectRatio?: number;
-  disableFlip?: boolean;
+  onScan: (decodedText: string) => void;
+  isScanning: boolean;
 }
 
-export function Scanner({
-  onScanSuccess,
-  onScanFailure,
-  fps = 10,
-  qrbox = 250,
-  aspectRatio = 1.0,
-  disableFlip = false,
-}: ScannerProps) {
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-
+export function Scanner({ onScan, isScanning }: ScannerProps) {
   useEffect(() => {
-    // Initialize scanner
+    if (!isScanning) return;
+
     const scanner = new Html5QrcodeScanner(
-      'reader',
-      {
-        fps,
-        qrbox,
-        aspectRatio,
-        disableFlip,
-      },
+      "reader",
+      { fps: 10, qrbox: { width: 250, height: 250 } },
       /* verbose= */ false
     );
 
     scanner.render(
       (decodedText) => {
-        onScanSuccess(decodedText);
-        // We might want to stop or pause here depending on UX
+        onScan(decodedText);
+        scanner.clear();
       },
       (error) => {
-        if (onScanFailure) onScanFailure(error);
+        // console.warn(error);
       }
     );
 
-    scannerRef.current = scanner;
-
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch((error) => {
-          console.error('Failed to clear html5QrcodeScanner', error);
-        });
-      }
+      scanner.clear().catch(error => console.error("Failed to clear scanner", error));
     };
-  }, [onScanSuccess, onScanFailure, fps, qrbox, aspectRatio, disableFlip]);
+  }, [onScan, isScanning]);
 
   return (
-    <div className="w-full max-w-md mx-auto overflow-hidden rounded-lg border border-border bg-muted">
-      <div id="reader" className="w-full"></div>
-    </div>
+    <Card className="border-none shadow-xl overflow-hidden bg-zinc-900 text-white">
+      <CardHeader className="border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-elnusa-blue rounded-lg">
+            <ScanLine size={20} className="text-white" />
+          </div>
+          <div>
+            <CardTitle className="text-lg uppercase tracking-widest font-black">QR Scanner</CardTitle>
+            <CardDescription className="text-white/50 text-[10px] uppercase font-bold">Point camera at item label</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-6">
+        <div className="relative">
+          <div id="reader" className="overflow-hidden rounded-xl border-2 border-elnusa-blue/30 bg-black aspect-square md:aspect-video"></div>
+          
+          <div className="mt-6 p-4 rounded-xl bg-white/5 border border-white/10 flex items-start gap-3">
+            <AlertCircle className="text-elnusa-yellow shrink-0" size={18} />
+            <div className="space-y-1">
+              <p className="text-xs font-bold uppercase tracking-wider">Instructions</p>
+              <p className="text-[10px] text-white/60 leading-relaxed">
+                Ensure the QR code is within the frame and well-lit. The system will automatically detect the SKU and open the item details.
+              </p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

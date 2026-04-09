@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Search, Filter, MoreVertical, Download, QrCode } from 'lucide-react';
+import { Search, Filter, MoreVertical, Download, QrCode, Edit, Trash2, Package } from 'lucide-react';
 import { WarehouseItem } from '@/types/warehouse';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -22,12 +22,16 @@ import { cn } from '@/lib/utils';
 
 interface InventoryListProps {
   items: WarehouseItem[];
+  isAdmin?: boolean;
   onItemClick: (item: WarehouseItem) => void;
   onShowQR?: (item: WarehouseItem) => void;
+  onEdit?: (item: WarehouseItem) => void;
+  onDelete?: (item: WarehouseItem) => void;
   onExport?: () => void;
+  onPrintLabels?: () => void;
 }
 
-export function InventoryList({ items, onItemClick, onShowQR, onExport }: InventoryListProps) {
+export function InventoryList({ items, isAdmin, onItemClick, onShowQR, onEdit, onDelete, onExport, onPrintLabels }: InventoryListProps) {
   const [searchTerm, setSearchTerm] = React.useState('');
 
   const filteredItems = items.filter(item => 
@@ -57,6 +61,10 @@ export function InventoryList({ items, onItemClick, onShowQR, onExport }: Invent
             <Download size={16} />
             Export
           </Button>
+          <Button variant="outline" className="gap-2 flex-1 sm:flex-none border-elnusa-blue/20 text-elnusa-blue hover:bg-elnusa-blue/5" onClick={onPrintLabels}>
+            <QrCode size={16} />
+            Labels
+          </Button>
         </div>
       </div>
 
@@ -64,6 +72,7 @@ export function InventoryList({ items, onItemClick, onShowQR, onExport }: Invent
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[80px]">Image</TableHead>
               <TableHead>Item Name</TableHead>
               <TableHead>SKU</TableHead>
               <TableHead>Category</TableHead>
@@ -83,25 +92,39 @@ export function InventoryList({ items, onItemClick, onShowQR, onExport }: Invent
               filteredItems.map((item) => (
                 <TableRow 
                   key={item.id} 
-                  className="cursor-pointer hover:bg-muted/50"
+                  className="cursor-pointer hover:bg-muted/50 transition-colors group"
                   onClick={() => onItemClick(item)}
                 >
-                  <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="font-normal">
+                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden border shadow-sm">
+                      {item.imageUrl ? (
+                        <img 
+                          src={item.imageUrl} 
+                          alt={item.name} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <Package className="text-muted-foreground/40" size={20} />
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-bold group-hover:text-elnusa-blue transition-colors">{item.name}</TableCell>
+                  <TableCell className="font-mono text-xs font-bold text-elnusa-blue">{item.sku}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="bg-muted/50 text-[10px] uppercase font-bold">
                       {item.category}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <span className={cn(
-                      "font-bold",
+                      "font-mono font-bold text-lg",
                       item.quantity <= 5 ? "text-destructive" : "text-foreground"
                     )}>
                       {item.quantity}
                     </span>
                   </TableCell>
-                  <TableCell>{item.location}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground text-xs uppercase tracking-wider">{item.location}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8")}>
@@ -111,8 +134,23 @@ export function InventoryList({ items, onItemClick, onShowQR, onExport }: Invent
                         <DropdownMenuItem onClick={() => onItemClick(item)}>View Details</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onShowQR?.(item)}>
                           <QrCode className="mr-2 h-4 w-4" />
-                          Show QR Code
+                          <span>Show QR Code</span>
                         </DropdownMenuItem>
+                        {isAdmin && (
+                          <>
+                            <DropdownMenuItem onClick={() => onEdit?.(item)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              <span>Edit Item</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-destructive focus:text-destructive" 
+                              onClick={() => onDelete?.(item)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              <span>Delete Item</span>
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         <DropdownMenuItem>Inbound Stock</DropdownMenuItem>
                         <DropdownMenuItem>Outbound Stock</DropdownMenuItem>
                         <DropdownMenuItem>Borrow Item</DropdownMenuItem>

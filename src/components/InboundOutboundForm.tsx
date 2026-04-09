@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import { WarehouseItem, TransactionType } from '@/types/warehouse';
 import { 
   DialogHeader, 
@@ -41,15 +42,19 @@ export function InboundOutboundForm({ item, type, onSubmit, onCancel }: InboundO
       </DialogHeader>
 
       <div className="space-y-4 py-4">
-        <div className="space-y-2">
-          <Label>Current Quantity</Label>
-          <div className="p-3 rounded-md bg-muted text-sm font-bold">
-            {item.quantity}
+        <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-muted">
+          <div>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Current Stock</p>
+            <p className="text-2xl font-black text-elnusa-blue">{item.quantity}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Location</p>
+            <p className="text-sm font-bold">{item.location}</p>
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="quantity">Quantity to {type === 'inbound' ? 'Add' : 'Remove'}</Label>
+          <Label htmlFor="quantity" className="text-xs font-bold uppercase tracking-wider">Quantity to {type === 'inbound' ? 'Add' : 'Remove'}</Label>
           <Input 
             id="quantity" 
             name="quantity" 
@@ -58,20 +63,24 @@ export function InboundOutboundForm({ item, type, onSubmit, onCancel }: InboundO
             max={type === 'outbound' ? item.quantity : undefined}
             required 
             defaultValue="1"
+            className="h-12 text-lg font-bold"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="notes">Notes</Label>
-          <Input id="notes" name="notes" placeholder="Reason for movement..." />
+          <Label htmlFor="notes" className="text-xs font-bold uppercase tracking-wider">Notes / Reference</Label>
+          <Input id="notes" name="notes" placeholder="e.g. PO-123, Maintenance, etc." className="h-11" />
         </div>
       </div>
 
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+      <DialogFooter className="gap-2 sm:gap-0">
+        <Button type="button" variant="ghost" onClick={onCancel} className="font-bold">Cancel</Button>
         <Button 
           type="submit" 
-          className={type === 'inbound' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+          className={cn(
+            "font-black uppercase tracking-widest",
+            type === 'inbound' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+          )}
         >
           Confirm {type === 'inbound' ? 'Inbound' : 'Outbound'}
         </Button>
