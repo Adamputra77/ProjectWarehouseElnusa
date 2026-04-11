@@ -159,6 +159,7 @@ export default function App() {
 
     const itemsUnsubscribe = onSnapshot(collection(db, 'items'), (snapshot) => {
       const itemsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WarehouseItem));
+      console.log("Loaded items:", itemsData.length);
       setItems(itemsData);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'items'));
 
@@ -382,17 +383,33 @@ export default function App() {
       handleFirestoreError(error, OperationType.UPDATE, `borrowRecords/${record.id}`);
     }
   };
-  const handleScan = (sku: string) => {
-    const item = items.find(i => i.sku === sku || i.qrCode === sku);
+  const handleScan = React.useCallback((sku: string) => {
+    if (!sku) return;
+    
+    const trimmedSku = sku.trim();
+    console.log("Scanned SKU:", trimmedSku);
+    
+    const item = items.find(i => {
+      const itemSku = i.sku?.toLowerCase();
+      const itemQr = i.qrCode?.toLowerCase();
+      const scanned = trimmedSku.toLowerCase();
+      
+      return (itemSku === scanned) || 
+             (itemQr === scanned) ||
+             (scanned.includes(itemSku) && itemSku.length > 3) || // If SKU is inside a URL
+             (itemSku.includes(scanned) && scanned.length > 3);   // If partial scan
+    });
+
     if (item) {
       setSelectedItem(item);
       setModalType('edit');
       toast.success(`Found item: ${item.name}`);
       setActiveTab('inventory');
     } else {
-      toast.error(`Item with SKU ${sku} not found`);
+      console.warn(`Item with SKU "${trimmedSku}" not found in`, items.map(i => i.sku));
+      toast.error(`Item with SKU ${trimmedSku} not found`);
     }
-  };
+  }, [items]);
 
   const handleStartAudit = async () => {
     if (!user || checkMaintenance() || !isAdmin) return;

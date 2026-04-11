@@ -1,9 +1,21 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let genAI: GoogleGenAI | null = null;
+
+function getGenAI() {
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === "undefined" || apiKey === "MY_GEMINI_API_KEY") {
+      throw new Error("GEMINI_API_KEY is not configured. Please set it in the Secrets panel.");
+    }
+    genAI = new GoogleGenAI(apiKey);
+  }
+  return genAI;
+}
 
 export async function getInventoryInsights(inventoryData: any, transactions: any) {
   try {
+    const ai = getGenAI();
     const prompt = `
       You are an expert warehouse analyst for Elnusa, an oil and gas services company.
       Analyze the following inventory and transaction data and provide 3-4 actionable insights.

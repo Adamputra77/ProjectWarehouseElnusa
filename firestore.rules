@@ -129,7 +129,7 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.name is string && data.name.size() > 0 &&
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
              data.role in ['admin', 'staff'];
     }
@@ -144,12 +144,12 @@ service cloud.firestore {
     }
 
     function isValidAuditRecord(data) {
-      return data.sessionId is string &&
-             data.itemId is string &&
+      return data.sessionId is string && data.sessionId.size() < 100 &&
+             data.itemId is string && data.itemId.size() < 100 &&
              data.systemQty is number &&
              data.physicalQty is number &&
              data.variance is number &&
-             data.verifiedBy is string &&
+             data.verifiedBy is string && data.verifiedBy.size() < 100 &&
              data.timestamp is timestamp;
     }
 
@@ -189,7 +189,9 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data);
+      allow create: if isAuthenticated() && 
+                    (isAdmin() || (isOwner(userId) && request.resource.data.role == 'staff')) && 
+                    isValidUser(request.resource.data);
       allow update: if isAuthenticated() && (
         isAdmin() || 
         (isOwner(userId) && request.resource.data.role == resource.data.role)
