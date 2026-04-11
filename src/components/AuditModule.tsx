@@ -110,7 +110,7 @@ export function AuditModule({
               <div>
                 <CardTitle className="text-xl uppercase font-black tracking-widest">Audit Session Ongoing</CardTitle>
                 <CardDescription className="text-white/50 font-bold uppercase text-[10px]">
-                  Started on {format(activeSession.startDate.toDate(), 'dd MMM yyyy HH:mm')} by {activeSession.createdBy}
+                  Started on {activeSession.startDate ? format(activeSession.startDate.toDate(), 'dd MMM yyyy HH:mm') : '...'} by {activeSession.createdBy}
                 </CardDescription>
               </div>
             </div>

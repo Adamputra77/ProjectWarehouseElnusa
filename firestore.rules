@@ -47,6 +47,32 @@ service cloud.firestore {
     //   - role: string (enum: ['admin', 'staff'])
     //   - photoUrl: string
     //
+    // Collection: auditSessions
+    // Fields:
+    //   - title: string
+    //   - startDate: timestamp (required)
+    //   - endDate: timestamp
+    //   - status: string (enum: ['ongoing', 'completed'])
+    //   - createdBy: string (required)
+    //   - totalItems: number (required)
+    //   - verifiedItems: number (required)
+    //
+    // Collection: auditSessions/{sessionId}/records
+    // Fields:
+    //   - sessionId: string (required)
+    //   - itemId: string (required)
+    //   - sku: string
+    //   - itemName: string
+    //   - systemQty: number (required)
+    //   - physicalQty: number (required)
+    //   - variance: number (required)
+    //   - verifiedBy: string (required)
+    //   - timestamp: timestamp (required)
+    //
+    // Collection: settings
+    // Fields:
+    //   - isMaintenance: bool
+    //
     // ===============================================================
 
     // ===============================================================
@@ -108,6 +134,29 @@ service cloud.firestore {
              data.role in ['admin', 'staff'];
     }
 
+    function isValidAuditSession(data) {
+      return data.startDate is timestamp &&
+             data.status in ['ongoing', 'completed'] &&
+             data.createdBy is string &&
+             data.totalItems is number &&
+             data.verifiedItems is number &&
+             (!('title' in data) || (data.title is string && data.title.size() < 200));
+    }
+
+    function isValidAuditRecord(data) {
+      return data.sessionId is string &&
+             data.itemId is string &&
+             data.systemQty is number &&
+             data.physicalQty is number &&
+             data.variance is number &&
+             data.verifiedBy is string &&
+             data.timestamp is timestamp;
+    }
+
+    function isValidSettings(data) {
+      return !('isMaintenance' in data) || data.isMaintenance is bool;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -146,6 +195,31 @@ service cloud.firestore {
         (isOwner(userId) && request.resource.data.role == resource.data.role)
       );
       allow delete: if isAdmin();
+    }
+
+    match /auditSessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidAuditSession(request.resource.data);
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verifiedItems']))
+      );
+      allow delete: if isAdmin();
+
+      match /records/{recordId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && isValidAuditRecord(request.resource.data);
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && isValidSettings(request.resource.data);
+    }
+
+    match /test/connection {
+      allow read: if true;
     }
 
     match /{path=**} {

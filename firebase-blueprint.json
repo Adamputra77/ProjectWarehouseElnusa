@@ -56,12 +56,55 @@
         "photoUrl": { "type": "string", "format": "uri", "description": "Profile photo URL" }
       },
       "required": ["name", "email", "role"]
+    },
+    "AuditSession": {
+      "title": "AuditSession",
+      "description": "A stock opname session",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the session" },
+        "startDate": { "type": "string", "format": "date-time", "description": "When the session started" },
+        "endDate": { "type": "string", "format": "date-time", "description": "When the session ended" },
+        "status": { "type": "string", "enum": ["ongoing", "completed"], "description": "Current status" },
+        "createdBy": { "type": "string", "description": "Name/Email of the creator" },
+        "totalItems": { "type": "number", "description": "Total items to audit" },
+        "verifiedItems": { "type": "number", "description": "Number of items verified" }
+      },
+      "required": ["startDate", "status", "createdBy", "totalItems", "verifiedItems"]
+    },
+    "AuditRecord": {
+      "title": "AuditRecord",
+      "description": "A record of a single item verification during an audit",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string", "description": "ID of the audit session" },
+        "itemId": { "type": "string", "description": "ID of the item" },
+        "sku": { "type": "string", "description": "SKU of the item" },
+        "itemName": { "type": "string", "description": "Name of the item" },
+        "systemQty": { "type": "number", "description": "Quantity in system" },
+        "physicalQty": { "type": "number", "description": "Quantity found physically" },
+        "variance": { "type": "number", "description": "Difference between physical and system quantity" },
+        "verifiedBy": { "type": "string", "description": "Name/Email of the verifier" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the verification occurred" }
+      },
+      "required": ["sessionId", "itemId", "systemQty", "physicalQty", "variance", "verifiedBy", "timestamp"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Global application settings",
+      "type": "object",
+      "properties": {
+        "isMaintenance": { "type": "boolean", "description": "Whether the system is in maintenance mode" }
+      }
     }
   },
   "firestore": {
     "/items/{itemId}": { "schema": "Item", "description": "Inventory items" },
     "/transactions/{transactionId}": { "schema": "Transaction", "description": "Stock movement history" },
     "/borrowRecords/{recordId}": { "schema": "BorrowRecord", "description": "Borrowing history" },
-    "/users/{userId}": { "schema": "User", "description": "User profiles" }
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/auditSessions/{sessionId}": { "schema": "AuditSession", "description": "Stock opname sessions" },
+    "/auditSessions/{sessionId}/records/{recordId}": { "schema": "AuditRecord", "description": "Verification records for an audit session" },
+    "/settings/{settingId}": { "schema": "Settings", "description": "Global system settings" }
   }
 }

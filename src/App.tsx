@@ -5,6 +5,8 @@ import {
   googleProvider, 
   signInWithPopup, 
   signOut,
+  getDoc,
+  setDoc,
   onSnapshot,
   collection,
   query,
@@ -97,7 +99,7 @@ export default function App() {
       if (doc.exists()) {
         setIsMaintenance(doc.data().isMaintenance || false);
       }
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/global'));
     return () => settingsUnsubscribe();
   }, [user]);
 
@@ -128,8 +130,24 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      if (u) {
+        // Ensure user document exists
+        try {
+          const userDoc = await getDoc(doc(db, 'users', u.uid));
+          if (!userDoc.exists()) {
+            await setDoc(doc(db, 'users', u.uid), {
+              name: u.displayName || 'User',
+              email: u.email,
+              role: u.email === 'rrajadinadam@gmail.com' ? 'admin' : 'staff',
+              photoUrl: u.photoURL || ''
+            });
+          }
+        } catch (error) {
+          console.error("Error ensuring user document:", error);
+        }
+      }
       setLoading(false);
     });
     return () => unsubscribe();
@@ -164,28 +182,35 @@ export default function App() {
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'borrowRecords'));
 
     const auditSessionQuery = query(collection(db, 'auditSessions'), where('status', '==', 'ongoing'));
+    let recordsUnsubscribe: (() => void) | null = null;
+
     const auditSessionUnsubscribe = onSnapshot(auditSessionQuery, (snapshot) => {
+      if (recordsUnsubscribe) {
+        recordsUnsubscribe();
+        recordsUnsubscribe = null;
+      }
+
       if (!snapshot.empty) {
         const session = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as AuditSession;
         setActiveAuditSession(session);
         
         // Listen to records for this session
-        const recordsUnsubscribe = onSnapshot(collection(db, `auditSessions/${session.id}/records`), (recSnapshot) => {
+        recordsUnsubscribe = onSnapshot(collection(db, `auditSessions/${session.id}/records`), (recSnapshot) => {
           const recordsData = recSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditRecord));
           setAuditRecords(recordsData);
-        });
-        return () => recordsUnsubscribe();
+        }, (error) => handleFirestoreError(error, OperationType.LIST, `auditSessions/${session.id}/records`));
       } else {
         setActiveAuditSession(null);
         setAuditRecords([]);
       }
-    });
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'auditSessions'));
 
     return () => {
       itemsUnsubscribe();
       txUnsubscribe();
       borrowUnsubscribe();
       auditSessionUnsubscribe();
+      if (recordsUnsubscribe) recordsUnsubscribe();
     };
   }, [user]);
 
@@ -1018,11 +1043,11 @@ export default function App() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <h2 className="text-2xl font-bold text-elnusa-blue">Transaction History</h2>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2 font-bold" onClick={() => exportToCSV(filteredHistory, 'Transaction_History')}>
+              <Button variant="outline" className="gap-2 font-bold" onClick={() => exportToCSV(transactions, 'Transaction_History')}>
                 <Download size={16} />
                 CSV
               </Button>
-              <Button variant="outline" className="gap-2 font-bold border-red-200 text-red-600 hover:bg-red-50" onClick={() => exportToPDF(filteredHistory, 'Transaction History Report')}>
+              <Button variant="outline" className="gap-2 font-bold border-red-200 text-red-600 hover:bg-red-50" onClick={() => exportToPDF(transactions, 'Transaction History Report')}>
                 <FileText size={16} />
                 PDF Report
               </Button>
@@ -1080,7 +1105,7 @@ export default function App() {
               <TableBody>
                 {filteredHistory.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                       No transactions found.
                     </TableCell>
                   </TableRow>
@@ -1111,12 +1136,6 @@ export default function App() {
               </TableBody>
             </Table>
           </div>
-        </div>
-      )}
-
-      {activeTab === 'scan' && (
-        <div className="max-w-2xl mx-auto">
-          <Scanner onScan={handleScan} isScanning={activeTab === 'scan'} />
         </div>
       )}
 
