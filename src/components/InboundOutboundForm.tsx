@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import {
   DialogDescription, 
   DialogFooter 
 } from '@/components/ui/dialog';
+import { Camera, Image as ImageIcon, X } from 'lucide-react';
 
 interface InboundOutboundFormProps {
   item: WarehouseItem;
@@ -19,6 +20,19 @@ interface InboundOutboundFormProps {
 }
 
 export function InboundOutboundForm({ item, type, onSubmit, onCancel }: InboundOutboundFormProps) {
+  const [evidenceImage, setEvidenceImage] = useState<string | null>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEvidenceImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
@@ -27,24 +41,25 @@ export function InboundOutboundForm({ item, type, onSubmit, onCancel }: InboundO
       type,
       quantity: Number(formData.get('quantity')),
       notes: formData.get('notes'),
+      evidenceUrl: evidenceImage
     });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <DialogHeader>
-        <DialogTitle>{type === 'inbound' ? 'Stock In' : 'Stock Out'}</DialogTitle>
+        <DialogTitle>{type === 'inbound' ? 'Sparepart In' : 'Sparepart Out'}</DialogTitle>
         <DialogDescription>
           {type === 'inbound' 
-            ? `Adding new stock for ${item.name}.` 
-            : `Removing stock for ${item.name}.`}
+            ? `Adding new sparepart stock for ${item.name}.` 
+            : `Removing sparepart stock for ${item.name}.`}
         </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-4 py-4">
         <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50 border border-muted">
           <div>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground">Current Stock</p>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground">Current Sparepart Stock</p>
             <p className="text-2xl font-black text-elnusa-blue">{item.quantity}</p>
           </div>
           <div className="text-right">
@@ -70,6 +85,36 @@ export function InboundOutboundForm({ item, type, onSubmit, onCancel }: InboundO
         <div className="space-y-2">
           <Label htmlFor="notes" className="text-xs font-bold uppercase tracking-wider">Notes / Reference</Label>
           <Input id="notes" name="notes" placeholder="e.g. PO-123, Maintenance, etc." className="h-11" />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase tracking-wider">Photo Evidence (Optional)</Label>
+          {!evidenceImage ? (
+            <div className="relative">
+              <input 
+                type="file" 
+                accept="image/*" 
+                capture="environment"
+                onChange={handleImageChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+              <div className="border-2 border-dashed border-muted rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-muted/30 transition-colors">
+                <Camera className="text-muted-foreground" size={24} />
+                <p className="text-[10px] font-bold uppercase text-muted-foreground">Tap to take photo or upload</p>
+              </div>
+            </div>
+          ) : (
+            <div className="relative rounded-xl overflow-hidden border">
+              <img src={evidenceImage} alt="Evidence" className="w-full h-32 object-cover" />
+              <button 
+                type="button"
+                onClick={() => setEvidenceImage(null)}
+                className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full shadow-lg"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

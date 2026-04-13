@@ -89,7 +89,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
           (request.auth.token.email == "rrajadinadam@gmail.com" && request.auth.token.email_verified == true));
     }
 
@@ -117,7 +117,10 @@ service cloud.firestore {
              data.quantity is number && data.quantity > 0 &&
              data.userId == request.auth.uid &&
              data.timestamp == request.time &&
-             (!('notes' in data) || (data.notes is string && data.notes.size() < 500));
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 500)) &&
+             (!('evidenceUrl' in data) || (data.evidenceUrl == null || (data.evidenceUrl is string && data.evidenceUrl.size() < 2000000))) &&
+             (!('itemName' in data) || (data.itemName is string)) &&
+             (!('userName' in data) || (data.userName is string));
     }
 
     function isValidBorrowRecord(data) {
@@ -131,7 +134,8 @@ service cloud.firestore {
     function isValidUser(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
-             data.role in ['admin', 'staff'];
+             data.role in ['admin', 'staff'] &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() < 1000));
     }
 
     function isValidAuditSession(data) {
@@ -155,6 +159,17 @@ service cloud.firestore {
 
     function isValidSettings(data) {
       return !('isMaintenance' in data) || data.isMaintenance is bool;
+    }
+
+    function isValidSupplier(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.createdAt is timestamp &&
+             (!('contactPerson' in data) || (data.contactPerson is string && data.contactPerson.size() < 200)) &&
+             (!('email' in data) || (data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"))) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() < 50)) &&
+             (!('address' in data) || (data.address is string && data.address.size() < 500)) &&
+             (!('category' in data) || (data.category is string && data.category.size() < 100)) &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 1000));
     }
 
     // ===============================================================
@@ -188,7 +203,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
       allow create: if isAuthenticated() && 
                     (isAdmin() || (isOwner(userId) && request.resource.data.role == 'staff')) && 
                     isValidUser(request.resource.data);
@@ -218,6 +233,11 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin() && isValidSettings(request.resource.data);
+    }
+
+    match /suppliers/{supplierId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidSupplier(request.resource.data);
     }
 
     match /test/connection {

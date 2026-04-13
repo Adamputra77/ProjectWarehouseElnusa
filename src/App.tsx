@@ -4,6 +4,8 @@ import {
   db, 
   googleProvider, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   getDoc,
   setDoc,
@@ -32,7 +34,8 @@ import {
   InventoryTransaction, 
   BorrowRecord, 
   AuditSession, 
-  AuditRecord 
+  AuditRecord,
+  Supplier
 } from './types/warehouse';
 import { cn } from '@/lib/utils';
 import { 
@@ -49,7 +52,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogDescription, 
-  DialogFooter 
+  DialogFooter,
+  DialogTrigger
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -59,11 +63,13 @@ import { BorrowForm } from './components/BorrowForm';
 import { ItemForm } from './components/ItemForm';
 import { LocationMap } from './components/LocationMap';
 import { AuditModule } from './components/AuditModule';
+import { UserManagement } from './components/UserManagement';
+import { SupplierManagement } from './components/SupplierManagement';
 import { getInventoryInsights } from './services/geminiService';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ScanLine, Package, Download, UserCircle, Clock, AlertTriangle, Search, FileText } from 'lucide-react';
+import { ScanLine, Package, Download, UserCircle, Clock, AlertTriangle, Search, FileText, AlertCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
@@ -81,7 +87,8 @@ export default function App() {
   const [borrowRecords, setBorrowRecords] = useState<any[]>([]);
   
   const [selectedItem, setSelectedItem] = useState<WarehouseItem | null>(null);
-  const [modalType, setModalType] = useState<'inbound' | 'outbound' | 'borrow' | 'qr' | 'add' | 'edit' | null>(null);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [modalType, setModalType] = useState<'inbound' | 'outbound' | 'borrow' | 'qr' | 'add' | 'edit' | 'delete' | null>(null);
   const [historySearch, setHistorySearch] = useState('');
   const [historyType, setHistoryType] = useState<'all' | 'inbound' | 'outbound'>('all');
   const [inventoryView, setInventoryView] = useState<'list' | 'map'>('list');
@@ -91,6 +98,8 @@ export default function App() {
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [activeAuditSession, setActiveAuditSession] = useState<AuditSession | null>(null);
   const [auditRecords, setAuditRecords] = useState<AuditRecord[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   // Settings Listener
   useEffect(() => {
@@ -102,6 +111,18 @@ export default function App() {
     }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/global'));
     return () => settingsUnsubscribe();
   }, [user]);
+
+  // Users Listener
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+    const q = query(collection(db, 'users'), orderBy('name', 'asc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users');
+    });
+    return () => unsub();
+  }, [user, isAdmin]);
 
   const handleToggleMaintenance = async () => {
     if (!isAdmin) return;
@@ -120,6 +141,34 @@ export default function App() {
     }
   };
 
+  // Maintenance Listener
+  useEffect(() => {
+    if (!user) return;
+    const unsub = onSnapshot(doc(db, 'settings', 'maintenance'), (snapshot) => {
+      if (snapshot.exists()) {
+        setIsMaintenance(snapshot.data().active);
+      }
+    }, (error) => {
+      // Silently fail for maintenance listener to avoid interrupting presentation
+      console.warn("Maintenance listener error:", error);
+    });
+    return () => unsub();
+  }, [user]);
+
+  const toggleMaintenance = async () => {
+    if (!isAdmin) return;
+    try {
+      await setDoc(doc(db, 'settings', 'maintenance'), {
+        active: !isMaintenance,
+        updatedBy: user?.email,
+        updatedAt: serverTimestamp()
+      });
+      toast.success(`Maintenance mode ${!isMaintenance ? 'enabled' : 'disabled'}`);
+    } catch (error) {
+      toast.error("Failed to update maintenance mode");
+    }
+  };
+
   const checkMaintenance = () => {
     if (isMaintenance && !isAdmin) {
       toast.error("System is under maintenance. Operations are restricted.");
@@ -130,6 +179,14 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
+    // Handle redirect result
+    getRedirectResult(auth).catch((error) => {
+      console.error("Redirect Login Error:", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        toast.error("Domain belum terdaftar di Firebase");
+      }
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
@@ -161,7 +218,9 @@ export default function App() {
       const itemsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WarehouseItem));
       console.log("Loaded items:", itemsData.length);
       setItems(itemsData);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'items'));
+    }, (error) => {
+      if (auth.currentUser) handleFirestoreError(error, OperationType.LIST, 'items');
+    });
 
     const txQuery = query(collection(db, 'transactions'), orderBy('timestamp', 'desc'));
     const txUnsubscribe = onSnapshot(txQuery, (snapshot) => {
@@ -175,12 +234,25 @@ export default function App() {
         };
       });
       setTransactions(txData);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'transactions'));
+    }, (error) => {
+      if (auth.currentUser) handleFirestoreError(error, OperationType.LIST, 'transactions');
+    });
 
     const borrowUnsubscribe = onSnapshot(collection(db, 'borrowRecords'), (snapshot) => {
       const borrowData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setBorrowRecords(borrowData);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'borrowRecords'));
+    }, (error) => {
+      if (auth.currentUser) handleFirestoreError(error, OperationType.LIST, 'borrowRecords');
+    });
+
+    const suppliersUnsubscribe = onSnapshot(collection(db, 'suppliers'), (snapshot) => {
+      const suppliersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supplier));
+      setSuppliers(suppliersData);
+    }, (error) => {
+      if (auth.currentUser) {
+        handleFirestoreError(error, OperationType.LIST, 'suppliers');
+      }
+    });
 
     const auditSessionQuery = query(collection(db, 'auditSessions'), where('status', '==', 'ongoing'));
     let recordsUnsubscribe: (() => void) | null = null;
@@ -199,17 +271,22 @@ export default function App() {
         recordsUnsubscribe = onSnapshot(collection(db, `auditSessions/${session.id}/records`), (recSnapshot) => {
           const recordsData = recSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditRecord));
           setAuditRecords(recordsData);
-        }, (error) => handleFirestoreError(error, OperationType.LIST, `auditSessions/${session.id}/records`));
+        }, (error) => {
+          if (auth.currentUser) handleFirestoreError(error, OperationType.LIST, `auditSessions/${session.id}/records`);
+        });
       } else {
         setActiveAuditSession(null);
         setAuditRecords([]);
       }
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'auditSessions'));
+    }, (error) => {
+      if (auth.currentUser) handleFirestoreError(error, OperationType.LIST, 'auditSessions');
+    });
 
     return () => {
       itemsUnsubscribe();
       txUnsubscribe();
       borrowUnsubscribe();
+      suppliersUnsubscribe();
       auditSessionUnsubscribe();
       if (recordsUnsubscribe) recordsUnsubscribe();
     };
@@ -226,7 +303,7 @@ export default function App() {
   useEffect(() => {
     const lowStockItems = items.filter(i => i.quantity <= 5 && i.quantity > 0);
     if (lowStockItems.length > 0 && !loading) {
-      toast.warning(`Critical Stock Alert: ${lowStockItems.length} items are running low!`, {
+      toast.warning(`Critical Stock Alert: ${lowStockItems.length} spareparts are running low!`, {
         description: "Check the dashboard for details.",
         duration: 5000,
       });
@@ -235,11 +312,87 @@ export default function App() {
 
   const handleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
-      toast.success("Logged in successfully");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to login");
+      // Check if mobile
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        await signInWithPopup(auth, googleProvider);
+        toast.success("Logged in successfully");
+      }
+    } catch (error: any) {
+      console.error("Login Error:", error);
+      
+      if (error.code === 'auth/unauthorized-domain') {
+        toast.error("Domain belum terdaftar di Firebase", {
+          description: "Silakan tambahkan domain ini ke 'Authorized Domains' di Firebase Console.",
+          duration: 10000
+        });
+      } else if (error.code === 'auth/popup-blocked') {
+        toast.error("Popup diblokir oleh browser", {
+          description: "Silakan izinkan popup untuk website ini atau coba gunakan browser lain.",
+          duration: 10000
+        });
+      } else {
+        toast.error("Gagal login: " + (error.message || "Unknown error"));
+      }
+    }
+  };
+
+  const handleBatchPrint = () => {
+    const itemsToPrint = items.filter(i => selectedItems.includes(i.id));
+    if (itemsToPrint.length === 0) {
+      toast.error("Pilih barang terlebih dahulu untuk mencetak label.");
+      return;
+    }
+
+    try {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Batch Print QR Labels - Elnusa BSD</title>
+              <style>
+                body { font-family: sans-serif; padding: 20px; }
+                .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
+                .label { border: 1px solid #eee; padding: 15px; display: flex; flex-direction: column; align-items: center; text-align: center; page-break-inside: avoid; }
+                img { width: 120px; height: 120px; margin-bottom: 10px; }
+                .name { font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+                .sku { font-family: monospace; font-size: 12px; color: #004a99; font-weight: bold; }
+                @media print {
+                  .grid { grid-template-columns: repeat(3, 1fr); }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="grid">
+                ${itemsToPrint.map(item => `
+                  <div class="label">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(item.sku)}" />
+                    <div class="name">${item.name}</div>
+                    <div class="sku">${item.sku}</div>
+                  </div>
+                `).join('')}
+              </div>
+              <script>
+                window.onload = () => {
+                  setTimeout(() => {
+                    window.print();
+                    window.onafterprint = () => window.close();
+                  }, 1000);
+                };
+              </script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+      } else {
+        toast.error("Popup diblokir! Silakan izinkan popup untuk mencetak label.");
+      }
+    } catch (e) {
+      toast.error("Pencetakan tidak didukung di browser ini.");
     }
   };
 
@@ -252,6 +405,12 @@ export default function App() {
     }
   };
 
+  const overdueBorrows = borrowRecords.filter(r => 
+    r.status === 'borrowed' && 
+    r.dueDate && 
+    r.dueDate.toDate() < new Date()
+  );
+
   const handleTransaction = async (data: any) => {
     if (!user || checkMaintenance()) return;
     try {
@@ -261,7 +420,7 @@ export default function App() {
           ...data,
           createdAt: serverTimestamp()
         });
-        toast.success("Item added successfully");
+        toast.success("Sparepart added successfully");
         setModalType(null);
         return;
       }
@@ -272,7 +431,7 @@ export default function App() {
           ...data,
           updatedAt: serverTimestamp()
         });
-        toast.success("Item updated successfully");
+        toast.success("Sparepart updated successfully");
         setModalType(null);
         return;
       }
@@ -300,7 +459,8 @@ export default function App() {
         userId: user.uid,
         userName: user.displayName,
         timestamp: serverTimestamp(),
-        notes: data.notes
+        notes: data.notes,
+        evidenceUrl: data.evidenceUrl || null
       });
 
       toast.success(`Stock ${data.type} successful`);
@@ -347,7 +507,7 @@ export default function App() {
         notes: `Borrowed: ${data.notes || ''}`
       });
 
-      toast.success("Item borrowed successfully");
+      toast.success("Sparepart borrowed successfully");
       setModalType(null);
     } catch (error) {
       console.error(error);
@@ -378,7 +538,7 @@ export default function App() {
         timestamp: serverTimestamp(),
         notes: `Returned: ${record.notes || ''}`
       });
-      toast.success("Item returned successfully");
+      toast.success("Sparepart returned successfully");
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `borrowRecords/${record.id}`);
     }
@@ -403,13 +563,66 @@ export default function App() {
     if (item) {
       setSelectedItem(item);
       setModalType('edit');
-      toast.success(`Found item: ${item.name}`);
+      toast.success(`Found sparepart: ${item.name}`);
       setActiveTab('inventory');
     } else {
       console.warn(`Item with SKU "${trimmedSku}" not found in`, items.map(i => i.sku));
-      toast.error(`Item with SKU ${trimmedSku} not found`);
+      toast.error(`Sparepart with SKU ${trimmedSku} not found`);
     }
   }, [items]);
+
+  const handleUpdateRole = async (userId: string, role: string) => {
+    if (!isAdmin) return;
+    try {
+      await updateDoc(doc(db, 'users', userId), { role });
+      toast.success(`User role updated to ${role}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!isAdmin) return;
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+      toast.success("User access removed");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `users/${userId}`);
+    }
+  };
+
+  const handleAddSupplier = async (data: any) => {
+    if (!isAdmin) return;
+    try {
+      await addDoc(collection(db, 'suppliers'), {
+        ...data,
+        createdAt: serverTimestamp()
+      });
+      toast.success("Supplier added successfully");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'suppliers');
+    }
+  };
+
+  const handleUpdateSupplier = async (id: string, data: any) => {
+    if (!isAdmin) return;
+    try {
+      await updateDoc(doc(db, 'suppliers', id), data);
+      toast.success("Supplier updated successfully");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `suppliers/${id}`);
+    }
+  };
+
+  const handleDeleteSupplier = async (id: string) => {
+    if (!isAdmin) return;
+    try {
+      await deleteDoc(doc(db, 'suppliers', id));
+      toast.success("Supplier deleted successfully");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `suppliers/${id}`);
+    }
+  };
 
   const handleStartAudit = async () => {
     if (!user || checkMaintenance() || !isAdmin) return;
@@ -560,11 +773,11 @@ export default function App() {
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('ELNUSA WAREHOUSE SYSTEM', 15, 20);
+    doc.text('ELNUSA SPAREPART SYSTEM', 15, 20);
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('BSD Warehouse Operations - Official Report', 15, 30);
+    doc.text('BSD Sparepart Operations - Official Report', 15, 30);
     doc.text(`Generated: ${format(new Date(), 'dd MMM yyyy HH:mm')}`, 150, 30);
 
     doc.setTextColor(0, 0, 0);
@@ -695,13 +908,19 @@ export default function App() {
       toast.error("Unauthorized: Only Admin can delete items");
       return;
     }
-    if (window.confirm(`Hapus barang ${item.name}? Tindakan ini tidak bisa dibatalkan.`)) {
-      try {
-        await deleteDoc(doc(db, 'items', item.id));
-        toast.success("Item deleted successfully");
-      } catch (e) {
-        toast.error("Failed to delete item");
-      }
+    setSelectedItem(item);
+    setModalType('delete');
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedItem) return;
+    try {
+      await deleteDoc(doc(db, 'items', selectedItem.id));
+      toast.success("Sparepart deleted successfully");
+      setModalType(null);
+      setSelectedItem(null);
+    } catch (e) {
+      toast.error("Failed to delete item");
     }
   };
   const seedInitialData = async () => {
@@ -762,6 +981,7 @@ export default function App() {
     totalItems: items.length,
     lowStock: items.filter(i => i.quantity <= 5).length,
     borrowedItems: borrowRecords.filter(r => r.status === 'borrowed').length,
+    overdueItems: overdueBorrows.length,
     recentTransactions: transactions.slice(0, 5),
     lowStockItems: items.filter(i => i.quantity <= 5).slice(0, 5),
     chartData: getChartData(),
@@ -785,6 +1005,7 @@ export default function App() {
       activeTab={activeTab} 
       setActiveTab={setActiveTab} 
       user={user} 
+      isAdmin={isAdmin}
       onLogout={handleLogout}
     >
       {activeTab === 'dashboard' && (
@@ -794,13 +1015,12 @@ export default function App() {
           onExportHistory={() => exportToCSV(transactions, 'Transaction_History')}
           onExportPDF={() => exportToPDF(transactions, 'Transaction History Report')}
           isMaintenance={isMaintenance}
-          onToggleMaintenance={() => {
-            if (isAdmin) setIsMaintenance(!isMaintenance);
-          }}
+          onToggleMaintenance={toggleMaintenance}
           isAdmin={isAdmin}
           aiInsights={aiInsights}
           onGetInsights={handleFetchInsights}
           isGeneratingInsights={isGeneratingInsights}
+          onNavigate={setActiveTab}
         />
       )}
       
@@ -808,7 +1028,7 @@ export default function App() {
         <div className="space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
-              <h2 className="text-2xl font-bold text-elnusa-blue">Warehouse Inventory</h2>
+              <h2 className="text-2xl font-bold text-elnusa-blue">Sparepart Inventory</h2>
               <div className="flex gap-2">
                 <Button 
                   variant={inventoryView === 'list' ? 'default' : 'outline'} 
@@ -843,6 +1063,9 @@ export default function App() {
             <InventoryList 
               items={items} 
               isAdmin={isAdmin}
+              selectedItems={selectedItems}
+              onToggleSelect={(id) => setSelectedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
+              onSelectAll={setSelectedItems}
               onItemClick={(item) => {
                 setSelectedItem(item);
                 setModalType('inbound');
@@ -857,7 +1080,7 @@ export default function App() {
               }}
               onDelete={handleDeleteItem}
               onExport={() => exportToCSV(items, 'Inventory_Gudang_BSD')}
-              onPrintLabels={() => generateQRBatch(items)}
+              onPrintLabels={handleBatchPrint}
             />
           ) : (
             <LocationMap items={items} />
@@ -1117,12 +1340,13 @@ export default function App() {
                   <TableHead className="font-bold uppercase text-[10px] tracking-widest">Staff</TableHead>
                   <TableHead className="font-bold uppercase text-[10px] tracking-widest">Date & Time</TableHead>
                   <TableHead className="font-bold uppercase text-[10px] tracking-widest">Notes</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px] tracking-widest text-right">Evidence</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredHistory.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                       No transactions found.
                     </TableCell>
                   </TableRow>
@@ -1147,6 +1371,30 @@ export default function App() {
                       <TableCell className="text-[10px] italic opacity-60 max-w-[200px] truncate">
                         {tx.notes || '-'}
                       </TableCell>
+                      <TableCell className="text-right">
+                        {tx.evidenceUrl ? (
+                          <Dialog>
+                            <DialogTrigger render={
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-elnusa-blue hover:bg-elnusa-blue/10">
+                                <FileText size={16} />
+                              </Button>
+                            } />
+                            <DialogContent className="max-w-md rounded-3xl border-none shadow-2xl">
+                              <DialogHeader>
+                                <DialogTitle className="text-sm uppercase font-black text-elnusa-blue">Bukti Transaksi</DialogTitle>
+                                <DialogDescription className="text-[10px] uppercase font-bold">
+                                  {tx.itemName} - {tx.type} oleh {tx.userName}
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="mt-4 rounded-2xl overflow-hidden border-4 border-elnusa-blue/5 shadow-inner">
+                                <img src={tx.evidenceUrl} alt="Evidence" className="w-full h-auto" />
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground italic opacity-30">None</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -1156,11 +1404,30 @@ export default function App() {
         </div>
       )}
 
+      {activeTab === 'users' && isAdmin && (
+        <UserManagement 
+          users={users}
+          onUpdateRole={handleUpdateRole}
+          onDeleteUser={handleDeleteUser}
+        />
+      )}
+
+      {activeTab === 'suppliers' && (
+        <SupplierManagement 
+          suppliers={suppliers}
+          onAddSupplier={handleAddSupplier}
+          onUpdateSupplier={handleUpdateSupplier}
+          onDeleteSupplier={handleDeleteSupplier}
+          isAdmin={isAdmin}
+        />
+      )}
+
       {/* Modals */}
       <Dialog open={!!modalType} onOpenChange={(open) => !open && setModalType(null)}>
         <DialogContent className="sm:max-w-[425px]">
           {modalType === 'add' && (
             <ItemForm 
+              suppliers={suppliers}
               onSubmit={handleTransaction} 
               onCancel={() => setModalType(null)} 
             />
@@ -1169,6 +1436,7 @@ export default function App() {
           {modalType === 'edit' && selectedItem && (
             <ItemForm 
               initialData={selectedItem}
+              suppliers={suppliers}
               onSubmit={handleTransaction} 
               onCancel={() => setModalType(null)} 
             />
@@ -1197,8 +1465,26 @@ export default function App() {
               onCancel={() => setModalType(null)} 
             />
           )}
+          {selectedItem && modalType === 'delete' && (
+            <div className="space-y-6 py-4">
+              <DialogHeader>
+                <DialogTitle className="text-destructive flex items-center gap-2">
+                  <AlertCircle size={20} />
+                  Konfirmasi Hapus
+                </DialogTitle>
+                <DialogDescription>
+                  Apakah Anda yakin ingin menghapus sparepart <strong>{selectedItem.name}</strong>? Tindakan ini tidak dapat dibatalkan.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setModalType(null)} className="flex-1">Batal</Button>
+                <Button variant="destructive" onClick={confirmDelete} className="flex-1">Hapus Sekarang</Button>
+              </DialogFooter>
+            </div>
+          )}
+
           {/* Quick toggle for modal type */}
-          {selectedItem && (
+          {selectedItem && modalType !== 'qr' && modalType !== 'delete' && (
             <div className="flex gap-2 mt-4 pt-4 border-t">
               <Button 
                 variant={modalType === 'inbound' ? 'default' : 'outline'} 
@@ -1231,13 +1517,13 @@ export default function App() {
               <DialogHeader>
                 <DialogTitle>QR Code: {selectedItem.name}</DialogTitle>
                 <DialogDescription>
-                  Scan kode ini untuk akses cepat ke item ini.
+                  Scan kode ini untuk akses cepat ke sparepart ini.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col items-center justify-center space-y-4">
                 <div className="bg-white p-4 rounded-xl border-4 border-elnusa-blue shadow-inner">
                   <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${selectedItem.sku}`} 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedItem.sku)}`} 
                     alt="QR Code"
                     className="w-48 h-48"
                     referrerPolicy="no-referrer"
@@ -1251,28 +1537,41 @@ export default function App() {
                 <Button 
                   className="bg-elnusa-blue w-full sm:w-auto"
                   onClick={() => {
-                    const printWindow = window.open('', '_blank');
-                    if (printWindow) {
-                      printWindow.document.write(`
-                        <html>
-                          <head>
-                            <title>Print QR Code - ${selectedItem.name}</title>
-                            <style>
-                              body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
-                              img { width: 300px; height: 300px; }
-                              h1 { margin-top: 20px; }
-                              p { font-family: monospace; font-size: 1.5rem; }
-                            </style>
-                          </head>
-                          <body>
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${selectedItem.sku}" />
-                            <h1>${selectedItem.name}</h1>
-                            <p>SKU: ${selectedItem.sku}</p>
-                            <script>setTimeout(() => { window.print(); window.close(); }, 500);</script>
-                          </body>
-                        </html>
-                      `);
-                      printWindow.document.close();
+                    try {
+                      const printWindow = window.open('', '_blank');
+                      if (printWindow) {
+                        printWindow.document.write(`
+                          <html>
+                            <head>
+                              <title>Print QR Code - ${selectedItem.name}</title>
+                              <style>
+                                body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
+                                img { width: 300px; height: 300px; }
+                                h1 { margin-top: 20px; text-transform: uppercase; letter-spacing: 2px; }
+                                p { font-family: monospace; font-size: 1.5rem; font-weight: bold; color: #004a99; }
+                              </style>
+                            </head>
+                            <body>
+                              <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(selectedItem.sku)}" />
+                              <h1>${selectedItem.name}</h1>
+                              <p>SKU: ${selectedItem.sku}</p>
+                              <script>
+                                window.onload = () => {
+                                  setTimeout(() => {
+                                    window.print();
+                                    window.onafterprint = () => window.close();
+                                  }, 500);
+                                };
+                              </script>
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                      } else {
+                        toast.error("Popup diblokir! Silakan izinkan popup untuk mencetak label.");
+                      }
+                    } catch (e) {
+                      toast.error("Pencetakan tidak didukung di browser ini.");
                     }
                   }}
                 >

@@ -11,7 +11,8 @@ import {
   FileText,
   Sparkles,
   BrainCircuit,
-  Zap
+  Zap,
+  Users
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,7 @@ interface DashboardProps {
     totalItems: number;
     lowStock: number;
     borrowedItems: number;
+    overdueItems: number;
     recentTransactions: any[];
     lowStockItems: any[];
     chartData: any[];
@@ -50,6 +52,7 @@ interface DashboardProps {
   aiInsights?: any[];
   onGetInsights?: () => void;
   isGeneratingInsights?: boolean;
+  onNavigate?: (tab: string) => void;
 }
 
 export function Dashboard({ 
@@ -62,7 +65,8 @@ export function Dashboard({
   isAdmin,
   aiInsights = [],
   onGetInsights,
-  isGeneratingInsights
+  isGeneratingInsights,
+  onNavigate
 }: DashboardProps) {
   return (
     <div className="space-y-6">
@@ -90,7 +94,7 @@ export function Dashboard({
             <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-elnusa-yellow opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-elnusa-yellow"></span>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em]">System Broadcast: Warehouse BSD Operational - All systems nominal</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em]">System Broadcast: Sparepart BSD Operational - All systems nominal</p>
         </div>
         <div className="hidden md:block text-[10px] font-mono opacity-40">
           SECURE_NODE_04 // {new Date().toLocaleDateString()}
@@ -102,8 +106,8 @@ export function Dashboard({
           <div className="flex items-center gap-3">
             <AlertTriangle className="text-elnusa-blue" />
             <div>
-              <p className="font-bold text-elnusa-blue">Inventory Kosong</p>
-              <p className="text-sm text-elnusa-blue/70">Mau gua isiin barang-barang contoh Elnusa buat ngetes?</p>
+              <p className="font-bold text-elnusa-blue">Sparepart Kosong</p>
+              <p className="text-sm text-elnusa-blue/70">Mau gua isiin sparepart contoh Elnusa buat ngetes?</p>
             </div>
           </div>
           <Button onClick={onSeedData} className="bg-elnusa-blue hover:bg-elnusa-blue/90">
@@ -118,7 +122,7 @@ export function Dashboard({
             <Package size={120} />
           </div>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Total Inventory</CardTitle>
+            <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Total Spareparts</CardTitle>
             <Package className="h-4 w-4 opacity-70" />
           </CardHeader>
           <CardContent>
@@ -161,6 +165,29 @@ export function Dashboard({
           <CardContent>
             <div className="text-4xl font-black tracking-tighter">{stats.borrowedItems}</div>
             <p className="text-[10px] font-bold uppercase tracking-widest opacity-50 mt-1">Currently Borrowed</p>
+          </CardContent>
+        </Card>
+
+        <Card className={cn(
+          "md:col-span-3 border-none shadow-xl overflow-hidden relative group",
+          stats.overdueItems > 0 ? "bg-orange-600 text-white" : "bg-card"
+        )}>
+          <div className="absolute right-[-10%] top-[-10%] opacity-10 group-hover:scale-110 transition-transform duration-500">
+            <Clock size={120} />
+          </div>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className={cn(
+              "text-[10px] font-black uppercase tracking-[0.2em]",
+              stats.overdueItems > 0 ? "opacity-70" : "text-muted-foreground"
+            )}>Overdue Items</CardTitle>
+            <HistoryIcon className={cn("h-4 w-4", stats.overdueItems > 0 ? "opacity-70" : "text-orange-500")} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-black tracking-tighter">{stats.overdueItems}</div>
+            <p className={cn(
+              "text-[10px] font-bold uppercase tracking-widest mt-1",
+              stats.overdueItems > 0 ? "opacity-50" : "text-muted-foreground"
+            )}>Needs Return</p>
           </CardContent>
         </Card>
 
@@ -218,7 +245,7 @@ export function Dashboard({
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Sparkles size={40} className="text-elnusa-yellow/20 mb-4" />
                 <p className="text-sm font-bold uppercase tracking-widest opacity-60">No insights generated yet</p>
-                <p className="text-[10px] opacity-40 mt-1">Click the button above to analyze your inventory data</p>
+                <p className="text-[10px] opacity-40 mt-1">Click the button above to analyze your sparepart data</p>
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
@@ -325,6 +352,17 @@ export function Dashboard({
                 <CardTitle className="text-sm uppercase tracking-widest font-black">Activity</CardTitle>
               </div>
               <div className="flex gap-1">
+                {isAdmin && onNavigate && (
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-white/50 hover:text-white" 
+                    onClick={() => onNavigate('users')}
+                    title="Manage Users"
+                  >
+                    <Users size={12} />
+                  </Button>
+                )}
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-white/50 hover:text-white" onClick={onExportHistory}>
                   <Download size={12} />
                 </Button>

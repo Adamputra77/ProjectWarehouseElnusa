@@ -1,5 +1,5 @@
 {
-  "name": "Elnusa Warehouse Management System",
-  "description": "Professional warehouse management system with AI insights, QR scanning, and real-time inventory tracking for Elnusa.",
+  "name": "Elnusa Sparepart Management System",
+  "description": "Professional sparepart management system with AI insights, QR scanning, and real-time inventory tracking for Elnusa.",
   "requestFramePermissions": ["camera"]
 }

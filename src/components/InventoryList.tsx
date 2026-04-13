@@ -29,9 +29,24 @@ interface InventoryListProps {
   onDelete?: (item: WarehouseItem) => void;
   onExport?: () => void;
   onPrintLabels?: () => void;
+  selectedItems?: string[];
+  onToggleSelect?: (id: string) => void;
+  onSelectAll?: (ids: string[]) => void;
 }
 
-export function InventoryList({ items, isAdmin, onItemClick, onShowQR, onEdit, onDelete, onExport, onPrintLabels }: InventoryListProps) {
+export function InventoryList({ 
+  items, 
+  isAdmin, 
+  onItemClick, 
+  onShowQR, 
+  onEdit, 
+  onDelete, 
+  onExport, 
+  onPrintLabels,
+  selectedItems = [],
+  onToggleSelect,
+  onSelectAll
+}: InventoryListProps) {
   const [searchTerm, setSearchTerm] = React.useState('');
 
   const filteredItems = items.filter(item => 
@@ -40,13 +55,15 @@ export function InventoryList({ items, isAdmin, onItemClick, onShowQR, onEdit, o
     item.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const allSelected = filteredItems.length > 0 && filteredItems.every(i => selectedItems.includes(i.id));
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
         <div className="relative w-full sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search items, SKU, category..." 
+            placeholder="Search spareparts, SKU, category..." 
             className="pl-9"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -61,9 +78,16 @@ export function InventoryList({ items, isAdmin, onItemClick, onShowQR, onEdit, o
             <Download size={16} />
             Export
           </Button>
-          <Button variant="outline" className="gap-2 flex-1 sm:flex-none border-elnusa-blue/20 text-elnusa-blue hover:bg-elnusa-blue/5" onClick={onPrintLabels}>
+          <Button 
+            variant={selectedItems.length > 0 ? "default" : "outline"} 
+            className={cn(
+              "gap-2 flex-1 sm:flex-none",
+              selectedItems.length > 0 ? "bg-elnusa-blue" : "border-elnusa-blue/20 text-elnusa-blue hover:bg-elnusa-blue/5"
+            )} 
+            onClick={onPrintLabels}
+          >
             <QrCode size={16} />
-            Labels
+            {selectedItems.length > 0 ? `Labels (${selectedItems.length})` : 'Labels'}
           </Button>
         </div>
       </div>
@@ -72,8 +96,16 @@ export function InventoryList({ items, isAdmin, onItemClick, onShowQR, onEdit, o
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[40px]">
+                <input 
+                  type="checkbox" 
+                  className="rounded border-gray-300 text-elnusa-blue focus:ring-elnusa-blue"
+                  checked={allSelected}
+                  onChange={() => onSelectAll?.(allSelected ? [] : filteredItems.map(i => i.id))}
+                />
+              </TableHead>
               <TableHead className="w-[80px]">Image</TableHead>
-              <TableHead>Item Name</TableHead>
+              <TableHead>Sparepart Name</TableHead>
               <TableHead>SKU</TableHead>
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Quantity</TableHead>
@@ -85,16 +117,27 @@ export function InventoryList({ items, isAdmin, onItemClick, onShowQR, onEdit, o
             {filteredItems.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                  No items found.
+                  No spareparts found.
                 </TableCell>
               </TableRow>
             ) : (
               filteredItems.map((item) => (
                 <TableRow 
                   key={item.id} 
-                  className="cursor-pointer hover:bg-muted/50 transition-colors group"
+                  className={cn(
+                    "cursor-pointer hover:bg-muted/50 transition-colors group",
+                    selectedItems.includes(item.id) && "bg-elnusa-blue/5"
+                  )}
                   onClick={() => onItemClick(item)}
                 >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-gray-300 text-elnusa-blue focus:ring-elnusa-blue"
+                      checked={selectedItems.includes(item.id)}
+                      onChange={() => onToggleSelect?.(item.id)}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden border shadow-sm">
                       {item.imageUrl ? (
@@ -140,20 +183,20 @@ export function InventoryList({ items, isAdmin, onItemClick, onShowQR, onEdit, o
                           <>
                             <DropdownMenuItem onClick={() => onEdit?.(item)}>
                               <Edit className="mr-2 h-4 w-4" />
-                              <span>Edit Item</span>
+                              <span>Edit Sparepart</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive focus:text-destructive" 
                               onClick={() => onDelete?.(item)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              <span>Delete Item</span>
+                              <span>Delete Sparepart</span>
                             </DropdownMenuItem>
                           </>
                         )}
                         <DropdownMenuItem>Inbound Stock</DropdownMenuItem>
                         <DropdownMenuItem>Outbound Stock</DropdownMenuItem>
-                        <DropdownMenuItem>Borrow Item</DropdownMenuItem>
+                        <DropdownMenuItem>Borrow Sparepart</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

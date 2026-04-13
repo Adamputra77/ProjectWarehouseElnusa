@@ -81,9 +81,9 @@ export function AuditModule({
           <ClipboardCheck size={48} className="text-elnusa-blue" />
         </div>
         <div className="space-y-2 max-w-md">
-          <h2 className="text-2xl font-black uppercase tracking-tight">Stock Opname Module</h2>
+          <h2 className="text-2xl font-black uppercase tracking-tight">Sparepart Audit Module</h2>
           <p className="text-muted-foreground text-sm">
-            Mulai sesi audit baru untuk memverifikasi jumlah stok fisik di gudang dengan data sistem.
+            Mulai sesi audit baru untuk memverifikasi jumlah stok fisik sparepart dengan data sistem.
           </p>
         </div>
         {isAdmin && (
@@ -149,7 +149,7 @@ export function AuditModule({
           <CardHeader>
             <CardTitle className="text-sm uppercase font-black tracking-widest flex items-center gap-2">
               <CheckCircle2 size={18} className="text-green-500" />
-              Verifikasi Barang
+              Verifikasi Sparepart
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -233,7 +233,7 @@ export function AuditModule({
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/20">
-                  <TableHead className="text-[10px] uppercase font-black">Item</TableHead>
+                  <TableHead className="text-[10px] uppercase font-black">Sparepart</TableHead>
                   <TableHead className="text-[10px] uppercase font-black text-center">System</TableHead>
                   <TableHead className="text-[10px] uppercase font-black text-center">Physical</TableHead>
                   <TableHead className="text-[10px] uppercase font-black text-center">Variance</TableHead>
@@ -246,7 +246,7 @@ export function AuditModule({
                     <TableCell colSpan={5} className="h-64 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center space-y-2">
                         <Package size={32} className="opacity-20" />
-                        <p className="text-xs font-bold uppercase tracking-widest">Belum ada barang terverifikasi</p>
+                        <p className="text-xs font-bold uppercase tracking-widest">Belum ada sparepart terverifikasi</p>
                       </div>
                     </TableCell>
                   </TableRow>

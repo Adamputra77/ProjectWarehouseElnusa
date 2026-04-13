@@ -1,21 +1,22 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-let genAI: GoogleGenAI | null = null;
-
-function getGenAI() {
-  if (!genAI) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === "undefined" || apiKey === "MY_GEMINI_API_KEY") {
-      throw new Error("GEMINI_API_KEY is not configured. Please set it in the Secrets panel.");
-    }
-    genAI = new GoogleGenAI(apiKey);
-  }
-  return genAI;
-}
-
 export async function getInventoryInsights(inventoryData: any, transactions: any) {
   try {
-    const ai = getGenAI();
+    const apiKey = process.env.GEMINI_API_KEY;
+    
+    if (!apiKey || apiKey === "undefined" || apiKey === "MY_GEMINI_API_KEY" || apiKey === "") {
+      return [
+        {
+          title: "AI Insights (Demo Mode)",
+          description: "Please set your GEMINI_API_KEY in the Secrets panel to get real AI analysis of your warehouse data.",
+          priority: "medium",
+          category: "System"
+        }
+      ];
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+    
     const prompt = `
       You are an expert warehouse analyst for Elnusa, an oil and gas services company.
       Analyze the following inventory and transaction data and provide 3-4 actionable insights.
@@ -56,9 +57,13 @@ export async function getInventoryInsights(inventoryData: any, transactions: any
       }
     });
 
+    if (!response.text) {
+      throw new Error("Empty response from Gemini");
+    }
+
     return JSON.parse(response.text);
   } catch (error) {
     console.error("Gemini Insight Error:", error);
-    throw new Error("Failed to generate AI insights");
+    throw error;
   }
 }

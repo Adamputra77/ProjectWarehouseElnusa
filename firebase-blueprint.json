@@ -96,6 +96,22 @@
       "properties": {
         "isMaintenance": { "type": "boolean", "description": "Whether the system is in maintenance mode" }
       }
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "A vendor or supplier of warehouse items",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Company name" },
+        "contactPerson": { "type": "string", "description": "Contact person name" },
+        "email": { "type": "string", "format": "email", "description": "Contact email" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "address": { "type": "string", "description": "Office address" },
+        "category": { "type": "string", "description": "Type of goods supplied" },
+        "notes": { "type": "string", "description": "Additional notes" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the supplier was added" }
+      },
+      "required": ["name", "createdAt"]
     }
   },
   "firestore": {
@@ -105,6 +121,7 @@
     "/users/{userId}": { "schema": "User", "description": "User profiles" },
     "/auditSessions/{sessionId}": { "schema": "AuditSession", "description": "Stock opname sessions" },
     "/auditSessions/{sessionId}/records/{recordId}": { "schema": "AuditRecord", "description": "Verification records for an audit session" },
-    "/settings/{settingId}": { "schema": "Settings", "description": "Global system settings" }
+    "/settings/{settingId}": { "schema": "Settings", "description": "Global system settings" },
+    "/suppliers/{supplierId}": { "schema": "Supplier", "description": "Vendor/Supplier list" }
   }
 }

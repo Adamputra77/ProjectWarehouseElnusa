@@ -25,11 +25,14 @@ export type TransactionType = 'inbound' | 'outbound';
 export interface InventoryTransaction {
   id: string;
   itemId: string;
+  itemName?: string;
   type: TransactionType;
   quantity: number;
   userId: string;
+  userName?: string;
   timestamp: any; // Firestore Timestamp
   notes?: string;
+  evidenceUrl?: string;
 }
 
 export type BorrowStatus = 'borrowed' | 'returned';
@@ -71,4 +74,16 @@ export interface AuditRecord {
   variance: number;
   verifiedBy: string;
   timestamp: any;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  category?: string;
+  notes?: string;
+  createdAt: any;
 }

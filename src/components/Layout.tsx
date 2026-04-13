@@ -10,7 +10,9 @@ import {
   ArrowLeftRight,
   Sun,
   Moon,
-  ClipboardCheck
+  ClipboardCheck,
+  Users,
+  Building2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,10 +24,11 @@ interface LayoutProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   user: any;
+  isAdmin?: boolean;
   onLogout: () => void;
 }
 
-export function Layout({ children, activeTab, setActiveTab, user, onLogout }: LayoutProps) {
+export function Layout({ children, activeTab, setActiveTab, user, isAdmin, onLogout }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [isDarkMode, setIsDarkMode] = React.useState(() => {
     if (typeof window !== 'undefined') {
@@ -60,7 +63,9 @@ export function Layout({ children, activeTab, setActiveTab, user, onLogout }: La
     { id: 'scan', label: 'Scan Item', icon: ScanLine },
     { id: 'borrow', label: 'Borrowing', icon: ArrowLeftRight },
     { id: 'audit', label: 'Stock Opname', icon: ClipboardCheck },
+    { id: 'suppliers', label: 'Suppliers', icon: Building2 },
     { id: 'history', label: 'History', icon: History },
+    ...(isAdmin ? [{ id: 'users', label: 'Users', icon: Users }] : []),
   ];
 
   return (
@@ -68,12 +73,16 @@ export function Layout({ children, activeTab, setActiveTab, user, onLogout }: La
       {/* Sidebar for Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-gradient-to-b from-elnusa-blue to-[#004a88] text-white p-6 sticky top-0 h-screen shadow-xl z-20">
         <div className="flex items-center gap-3 mb-10 group cursor-default">
-          <div className="w-12 h-12 bg-elnusa-yellow rounded-2xl flex items-center justify-center font-black text-elnusa-blue shadow-lg transform group-hover:rotate-12 transition-transform duration-300">
-            E
+          <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg transform group-hover:rotate-12 transition-transform duration-300 overflow-hidden p-1">
+            <svg viewBox="0 0 100 100" className="w-full h-full">
+              <circle cx="50" cy="50" r="48" fill="#004a99" />
+              <path d="M70 50 C70 35 60 25 45 25 C30 25 20 35 20 50 C20 65 30 75 45 75 C55 75 65 70 70 60 L55 60 C52 65 48 67 45 67 C38 67 32 62 32 50 C32 38 38 33 45 33 C50 33 55 36 57 42 L25 42 L25 50 Z" fill="white" />
+              <circle cx="75" cy="25" r="8" fill="#ffcc00" />
+            </svg>
           </div>
           <div>
             <h1 className="font-black text-xl leading-none tracking-tighter">ELNUSA</h1>
-            <p className="text-[10px] uppercase font-bold tracking-widest opacity-60 mt-1">Warehouse BSD</p>
+            <p className="text-[10px] uppercase font-bold tracking-widest opacity-60 mt-1">Sparepart BSD</p>
           </div>
         </div>
 
@@ -138,12 +147,16 @@ export function Layout({ children, activeTab, setActiveTab, user, onLogout }: La
       {/* Mobile Header */}
       <header className="md:hidden bg-gradient-to-r from-elnusa-blue to-[#004a88] text-white p-4 flex items-center justify-between sticky top-0 z-50 shadow-md">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-elnusa-yellow rounded-xl flex items-center justify-center font-black text-elnusa-blue text-sm shadow-inner">
-            E
+          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-inner overflow-hidden p-1">
+            <svg viewBox="0 0 100 100" className="w-full h-full">
+              <circle cx="50" cy="50" r="48" fill="#004a99" />
+              <path d="M70 50 C70 35 60 25 45 25 C30 25 20 35 20 50 C20 65 30 75 45 75 C55 75 65 70 70 60 L55 60 C52 65 48 67 45 67 C38 67 32 62 32 50 C32 38 38 33 45 33 C50 33 55 36 57 42 L25 42 L25 50 Z" fill="white" />
+              <circle cx="75" cy="25" r="8" fill="#ffcc00" />
+            </svg>
           </div>
           <div>
             <h1 className="font-black text-sm leading-none tracking-tighter">ELNUSA</h1>
-            <p className="text-[8px] uppercase font-bold tracking-widest opacity-60">Warehouse BSD</p>
+            <p className="text-[8px] uppercase font-bold tracking-widest opacity-60">Sparepart BSD</p>
           </div>
         </div>
         <Button variant="ghost" size="icon" className="text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>

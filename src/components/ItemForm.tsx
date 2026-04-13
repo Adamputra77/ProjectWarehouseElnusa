@@ -8,14 +8,16 @@ import {
   DialogDescription, 
   DialogFooter 
 } from '@/components/ui/dialog';
+import { Supplier } from '@/types/warehouse';
 
 interface ItemFormProps {
   initialData?: any;
+  suppliers?: Supplier[];
   onSubmit: (data: any) => void;
   onCancel: () => void;
 }
 
-export function ItemForm({ initialData, onSubmit, onCancel }: ItemFormProps) {
+export function ItemForm({ initialData, suppliers = [], onSubmit, onCancel }: ItemFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
@@ -27,6 +29,7 @@ export function ItemForm({ initialData, onSubmit, onCancel }: ItemFormProps) {
       location: formData.get('location'),
       description: formData.get('description'),
       imageUrl: formData.get('imageUrl'),
+      supplierId: formData.get('supplierId'),
       qrCode: formData.get('sku'),
     };
     onSubmit(data);
@@ -35,9 +38,9 @@ export function ItemForm({ initialData, onSubmit, onCancel }: ItemFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <DialogHeader>
-        <DialogTitle>{initialData ? 'Edit Item' : 'Add New Inventory Item'}</DialogTitle>
+        <DialogTitle>{initialData ? 'Edit Sparepart' : 'Add New Sparepart'}</DialogTitle>
         <DialogDescription>
-          {initialData ? 'Perbarui detail barang yang sudah ada.' : 'Masukkan detail barang baru untuk didaftarkan ke gudang BSD.'}
+          {initialData ? 'Perbarui detail sparepart yang sudah ada.' : 'Masukkan detail sparepart baru untuk didaftarkan ke gudang BSD.'}
         </DialogDescription>
       </DialogHeader>
 
@@ -70,12 +73,26 @@ export function ItemForm({ initialData, onSubmit, onCancel }: ItemFormProps) {
           <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
           <Input id="imageUrl" name="imageUrl" className="col-span-3" defaultValue={initialData?.imageUrl} placeholder="https://..." />
         </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="supplierId" className="text-right">Supplier</Label>
+          <select 
+            id="supplierId" 
+            name="supplierId" 
+            className="col-span-3 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            defaultValue={initialData?.supplierId || ""}
+          >
+            <option value="">Select Supplier (Optional)</option>
+            {suppliers.map(s => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit" className="bg-elnusa-blue hover:bg-elnusa-blue/90">
-          {initialData ? 'Update Item' : 'Save Item'}
+          {initialData ? 'Update Sparepart' : 'Save Sparepart'}
         </Button>
       </DialogFooter>
     </form>
