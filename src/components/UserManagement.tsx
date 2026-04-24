@@ -51,7 +51,7 @@ export function UserManagement({ users, onUpdateRole, onDeleteUser }: UserManage
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-black text-elnusa-blue uppercase tracking-tight">User Management</h2>
-          <p className="text-muted-foreground text-sm font-medium">Manage staff access and roles for the warehouse system.</p>
+          <p className="text-muted-foreground text-sm font-medium">Manage staff access and roles for the sparepart management system.</p>
         </div>
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />

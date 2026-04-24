@@ -1,5 +1,5 @@
 import React from 'react';
-import { WarehouseItem } from '@/types/warehouse';
+import { SparepartItem } from '@/types/warehouse';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { MapPin, Package, Search } from 'lucide-react';
 
 interface LocationMapProps {
-  items: WarehouseItem[];
+  items: SparepartItem[];
 }
 
 export function LocationMap({ items }: LocationMapProps) {
@@ -25,9 +25,9 @@ export function LocationMap({ items }: LocationMapProps) {
         <div>
           <CardTitle className="text-lg font-bold flex items-center gap-2">
             <MapPin size={20} className="text-elnusa-blue" />
-            Warehouse Floor Map
+            Sparepart Floor Map
           </CardTitle>
-          <CardDescription>Visual distribution of items across storage zones</CardDescription>
+          <CardDescription>Visual distribution of spareparts across storage zones</CardDescription>
         </div>
         <div className="relative w-full md:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-3 w-3" />

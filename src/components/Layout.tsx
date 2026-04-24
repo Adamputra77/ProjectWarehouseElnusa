@@ -60,7 +60,7 @@ export function Layout({ children, activeTab, setActiveTab, user, isAdmin, onLog
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'inventory', label: 'Inventory', icon: Package },
-    { id: 'scan', label: 'Scan Item', icon: ScanLine },
+    { id: 'scan', label: 'Scan Sparepart', icon: ScanLine },
     { id: 'borrow', label: 'Borrowing', icon: ArrowLeftRight },
     { id: 'audit', label: 'Stock Opname', icon: ClipboardCheck },
     { id: 'suppliers', label: 'Suppliers', icon: Building2 },
@@ -177,7 +177,7 @@ export function Layout({ children, activeTab, setActiveTab, user, isAdmin, onLog
               </div>
               <div>
                 <h1 className="font-black text-xl text-white leading-none tracking-tighter">ELNUSA</h1>
-                <p className="text-[10px] text-white/60 uppercase font-bold tracking-widest mt-1">Warehouse BSD</p>
+                <p className="text-[10px] text-white/60 uppercase font-bold tracking-widest mt-1">Sparepart BSD</p>
               </div>
             </div>
 

@@ -4,8 +4,6 @@ import {
   db, 
   googleProvider, 
   signInWithPopup, 
-  signInWithRedirect,
-  getRedirectResult,
   signOut,
   getDoc,
   setDoc,
@@ -30,7 +28,7 @@ import { InventoryList } from './components/InventoryList';
 import { Scanner } from './components/Scanner';
 import { Login } from './components/Login';
 import { 
-  WarehouseItem, 
+  SparepartItem, 
   InventoryTransaction, 
   BorrowRecord, 
   AuditSession, 
@@ -65,11 +63,12 @@ import { LocationMap } from './components/LocationMap';
 import { AuditModule } from './components/AuditModule';
 import { UserManagement } from './components/UserManagement';
 import { SupplierManagement } from './components/SupplierManagement';
+import { ReturnForm } from './components/ReturnForm';
 import { getInventoryInsights } from './services/geminiService';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { ScanLine, Package, Download, UserCircle, Clock, AlertTriangle, Search, FileText, AlertCircle } from 'lucide-react';
+import { ScanLine, Package, Download, UserCircle, Clock, AlertTriangle, Search, FileText, AlertCircle, Camera } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
@@ -82,13 +81,14 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   
-  const [items, setItems] = useState<WarehouseItem[]>([]);
+  const [items, setItems] = useState<SparepartItem[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [borrowRecords, setBorrowRecords] = useState<any[]>([]);
   
-  const [selectedItem, setSelectedItem] = useState<WarehouseItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<SparepartItem | null>(null);
+  const [selectedBorrowRecord, setSelectedBorrowRecord] = useState<BorrowRecord | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [modalType, setModalType] = useState<'inbound' | 'outbound' | 'borrow' | 'qr' | 'add' | 'edit' | 'delete' | null>(null);
+  const [modalType, setModalType] = useState<'inbound' | 'outbound' | 'borrow' | 'return' | 'qr' | 'add' | 'edit' | 'delete' | null>(null);
   const [historySearch, setHistorySearch] = useState('');
   const [historyType, setHistoryType] = useState<'all' | 'inbound' | 'outbound'>('all');
   const [inventoryView, setInventoryView] = useState<'list' | 'map'>('list');
@@ -179,14 +179,6 @@ export default function App() {
 
   // Auth Listener
   useEffect(() => {
-    // Handle redirect result
-    getRedirectResult(auth).catch((error) => {
-      console.error("Redirect Login Error:", error);
-      if (error.code === 'auth/unauthorized-domain') {
-        toast.error("Domain belum terdaftar di Firebase");
-      }
-    });
-
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
@@ -215,7 +207,7 @@ export default function App() {
     if (!user) return;
 
     const itemsUnsubscribe = onSnapshot(collection(db, 'items'), (snapshot) => {
-      const itemsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as WarehouseItem));
+      const itemsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SparepartItem));
       console.log("Loaded items:", itemsData.length);
       setItems(itemsData);
     }, (error) => {
@@ -292,13 +284,6 @@ export default function App() {
     };
   }, [user]);
 
-  // Auto-seed if empty (optional, but requested by user)
-  useEffect(() => {
-    if (user && items.length === 0 && !loading) {
-      seedInitialData();
-    }
-  }, [user, items.length, loading]);
-
   // Low Stock Alerts
   useEffect(() => {
     const lowStockItems = items.filter(i => i.quantity <= 5 && i.quantity > 0);
@@ -312,15 +297,10 @@ export default function App() {
 
   const handleLogin = async () => {
     try {
-      // Check if mobile
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        await signInWithPopup(auth, googleProvider);
-        toast.success("Logged in successfully");
-      }
+      // Use popup for all devices including mobile. 
+      // Redirect often fails in sandboxed iframe environments or browsers that block 3rd party cookies.
+      await signInWithPopup(auth, googleProvider);
+      toast.success("Logged in successfully");
     } catch (error: any) {
       console.error("Login Error:", error);
       
@@ -334,6 +314,8 @@ export default function App() {
           description: "Silakan izinkan popup untuk website ini atau coba gunakan browser lain.",
           duration: 10000
         });
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        // Silent error for user closing popup
       } else {
         toast.error("Gagal login: " + (error.message || "Unknown error"));
       }
@@ -492,7 +474,9 @@ export default function App() {
         borrowDate: serverTimestamp(),
         dueDate: data.dueDate ? Timestamp.fromDate(data.dueDate) : null,
         status: 'borrowed',
-        notes: data.notes
+        purpose: data.purpose || '',
+        notes: data.notes || '',
+        initialPhotoUrl: data.initialPhotoUrl || '',
       });
 
       // Add Transaction for tracking
@@ -504,7 +488,7 @@ export default function App() {
         userId: user.uid,
         userName: user.displayName,
         timestamp: serverTimestamp(),
-        notes: `Borrowed: ${data.notes || ''}`
+        notes: `Borrowed: ${data.purpose || ''} ${data.notes ? '| ' + data.notes : ''}`
       });
 
       toast.success("Sparepart borrowed successfully");
@@ -515,32 +499,36 @@ export default function App() {
     }
   };
 
-  const handleReturn = async (record: BorrowRecord) => {
-    if (!user || checkMaintenance()) return;
+  const handleReturn = async (data: any) => {
+    if (!user || checkMaintenance() || !selectedBorrowRecord) return;
     try {
-      const item = items.find(i => i.id === record.itemId);
+      const item = items.find(i => i.id === selectedBorrowRecord.itemId);
       if (item) {
         await updateDoc(doc(db, 'items', item.id), {
           quantity: item.quantity + 1
         });
       }
-      await updateDoc(doc(db, 'borrowRecords', record.id), {
+      await updateDoc(doc(db, 'borrowRecords', selectedBorrowRecord.id), {
         status: 'returned',
-        returnDate: serverTimestamp()
+        returnDate: serverTimestamp(),
+        returnPhotoUrl: data.returnPhotoUrl || '',
+        returnNotes: data.returnNotes || ''
       });
       await addDoc(collection(db, 'transactions'), {
-        itemId: record.itemId,
-        itemName: record.itemName,
+        itemId: selectedBorrowRecord.itemId,
+        itemName: selectedBorrowRecord.itemName,
         type: 'inbound',
         quantity: 1,
         userId: user.uid,
         userName: user.displayName,
         timestamp: serverTimestamp(),
-        notes: `Returned: ${record.notes || ''}`
+        notes: `Returned: ${data.returnNotes || ''}`
       });
       toast.success("Sparepart returned successfully");
+      setModalType(null);
+      setSelectedBorrowRecord(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `borrowRecords/${record.id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `borrowRecords/${selectedBorrowRecord.id}`);
     }
   };
   const handleScan = React.useCallback((sku: string) => {
@@ -822,7 +810,7 @@ export default function App() {
     toast.success("PDF Report generated successfully");
   };
 
-  const generateQRBatch = async (itemsToPrint: WarehouseItem[]) => {
+  const generateQRBatch = async (itemsToPrint: SparepartItem[]) => {
     if (itemsToPrint.length === 0) {
       toast.error("No items to print");
       return;
@@ -902,7 +890,7 @@ export default function App() {
     }
   };
 
-  const handleDeleteItem = async (item: WarehouseItem) => {
+  const handleDeleteItem = async (item: SparepartItem) => {
     if (!user || checkMaintenance()) return;
     if (!isAdmin) {
       toast.error("Unauthorized: Only Admin can delete items");
@@ -1054,7 +1042,7 @@ export default function App() {
                 onClick={() => setModalType('add')}
               >
                 <Package size={18} />
-                Add New Item
+                Add New Sparepart
               </Button>
             )}
           </div>
@@ -1220,13 +1208,26 @@ export default function App() {
                             </p>
                           </div>
                         )}
+                        {record.initialPhotoUrl && (
+                          <div className="mt-2 rounded-lg overflow-hidden border bg-muted aspect-video cursor-zoom-in group">
+                            <img 
+                              src={record.initialPhotoUrl} 
+                              alt="Condition" 
+                              className="w-full h-full object-cover transition-transform group-hover:scale-110" 
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                        )}
                       </div>
                       <Button 
                         variant={isOverdue ? "destructive" : "outline"}
                         className="w-full mt-2 font-bold"
-                        onClick={() => handleReturn(record)}
+                        onClick={() => {
+                          setSelectedBorrowRecord(record);
+                          setModalType('return');
+                        }}
                       >
-                        Mark as Returned
+                        Kembalikan Barang
                       </Button>
                     </div>
                   );
@@ -1238,17 +1239,18 @@ export default function App() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="font-bold uppercase text-[10px] tracking-widest">Item</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px] tracking-widest">Sparepart</TableHead>
                     <TableHead className="font-bold uppercase text-[10px] tracking-widest">Staff</TableHead>
                     <TableHead className="font-bold uppercase text-[10px] tracking-widest">Borrowed</TableHead>
                     <TableHead className="font-bold uppercase text-[10px] tracking-widest">Returned</TableHead>
+                    <TableHead className="font-bold uppercase text-[10px] tracking-widest">Evidence</TableHead>
                     <TableHead className="font-bold uppercase text-[10px] tracking-widest">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {borrowRecords.filter(r => r.status === 'returned').length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
                         No return history.
                       </TableCell>
                     </TableRow>
@@ -1262,6 +1264,40 @@ export default function App() {
                         </TableCell>
                         <TableCell className="text-[10px] opacity-50">
                           {record.returnDate ? format(record.returnDate.toDate(), 'dd MMM yyyy') : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {record.initialPhotoUrl && (
+                              <Dialog>
+                                <DialogTrigger render={
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-elnusa-blue">
+                                    <Camera size={12} />
+                                  </Button>
+                                } />
+                                <DialogContent className="max-w-md">
+                                  <DialogHeader>
+                                    <DialogTitle className="text-xs uppercase font-black">Kondisi Awal</DialogTitle>
+                                  </DialogHeader>
+                                  <img src={record.initialPhotoUrl} alt="Initial" className="w-full rounded-lg" />
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                            {record.returnPhotoUrl && (
+                              <Dialog>
+                                <DialogTrigger render={
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600">
+                                    <Camera size={12} />
+                                  </Button>
+                                } />
+                                <DialogContent className="max-w-md">
+                                  <DialogHeader>
+                                    <DialogTitle className="text-xs uppercase font-black">Kondisi Akhir</DialogTitle>
+                                  </DialogHeader>
+                                  <img src={record.returnPhotoUrl} alt="Return" className="w-full rounded-lg" />
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[9px] uppercase font-black bg-green-50 text-green-600 border-green-200">
@@ -1335,7 +1371,7 @@ export default function App() {
                 <TableRow>
                   <TableHead className="font-bold uppercase text-[10px] tracking-widest">Log ID</TableHead>
                   <TableHead className="font-bold uppercase text-[10px] tracking-widest">Type</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-widest">Item Name</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px] tracking-widest">Sparepart Name</TableHead>
                   <TableHead className="font-bold uppercase text-[10px] tracking-widest">Qty</TableHead>
                   <TableHead className="font-bold uppercase text-[10px] tracking-widest">Staff</TableHead>
                   <TableHead className="font-bold uppercase text-[10px] tracking-widest">Date & Time</TableHead>
@@ -1465,6 +1501,14 @@ export default function App() {
               onCancel={() => setModalType(null)} 
             />
           )}
+          {selectedBorrowRecord && modalType === 'return' && (
+            <ReturnForm 
+              record={selectedBorrowRecord} 
+              onSubmit={handleReturn} 
+              onCancel={() => setModalType(null)} 
+            />
+          )}
+
           {selectedItem && modalType === 'delete' && (
             <div className="space-y-6 py-4">
               <DialogHeader>

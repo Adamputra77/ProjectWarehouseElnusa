@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { WarehouseItem, TransactionType } from '@/types/warehouse';
+import { SparepartItem, TransactionType } from '@/types/warehouse';
 import { 
   DialogHeader, 
   DialogTitle, 
@@ -11,9 +11,10 @@ import {
   DialogFooter 
 } from '@/components/ui/dialog';
 import { Camera, Image as ImageIcon, X } from 'lucide-react';
+import { compressImage } from '@/lib/imageUtils';
 
 interface InboundOutboundFormProps {
-  item: WarehouseItem;
+  item: SparepartItem;
   type: TransactionType;
   onSubmit: (data: any) => void;
   onCancel: () => void;
@@ -21,15 +22,20 @@ interface InboundOutboundFormProps {
 
 export function InboundOutboundForm({ item, type, onSubmit, onCancel }: InboundOutboundFormProps) {
   const [evidenceImage, setEvidenceImage] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEvidenceImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setIsProcessing(true);
+      try {
+        const compressed = await compressImage(file);
+        setEvidenceImage(compressed);
+      } catch (err) {
+        console.error("Image processing error:", err);
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -100,7 +106,9 @@ export function InboundOutboundForm({ item, type, onSubmit, onCancel }: InboundO
               />
               <div className="border-2 border-dashed border-muted rounded-xl p-6 flex flex-col items-center justify-center gap-2 hover:bg-muted/30 transition-colors">
                 <Camera className="text-muted-foreground" size={24} />
-                <p className="text-[10px] font-bold uppercase text-muted-foreground">Tap to take photo or upload</p>
+                <p className="text-[10px] font-bold uppercase text-muted-foreground">
+                  {isProcessing ? "Processing..." : "Tap to take photo or upload"}
+                </p>
               </div>
             </div>
           ) : (

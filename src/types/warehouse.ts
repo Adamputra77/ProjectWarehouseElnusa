@@ -8,7 +8,7 @@ export interface UserProfile {
   photoUrl?: string;
 }
 
-export interface WarehouseItem {
+export interface SparepartItem {
   id: string;
   name: string;
   sku: string;
@@ -48,6 +48,10 @@ export interface BorrowRecord {
   returnDate?: any; // Firestore Timestamp
   status: BorrowStatus;
   notes?: string;
+  purpose?: string;
+  initialPhotoUrl?: string;
+  returnPhotoUrl?: string;
+  returnNotes?: string;
 }
 
 export type AuditStatus = 'ongoing' | 'completed';

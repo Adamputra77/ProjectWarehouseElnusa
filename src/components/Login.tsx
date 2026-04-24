@@ -9,12 +9,20 @@ interface LoginProps {
 
 export function Login({ onLogin, loading }: LoginProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#f8f9fa] to-[#e9ecef] p-4 relative overflow-hidden">
-      {/* Decorative background elements */}
-      <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-elnusa-blue/5 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-elnusa-yellow/10 rounded-full blur-3xl"></div>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-zinc-900">
+      {/* Background Image with Overlay */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat opacity-40 grayscale"
+        style={{ 
+          backgroundImage: 'url("/login-bg.png")',
+          filter: 'brightness(0.4)'
+        }}
+      ></div>
+      
+      {/* Gradient Overlay for depth */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-80"></div>
 
-      <Card className="w-full max-w-md shadow-2xl border-none bg-white/80 backdrop-blur-md relative z-10 rounded-3xl overflow-hidden">
+      <Card className="w-full max-w-md shadow-2xl border-none bg-white/90 backdrop-blur-xl relative z-10 rounded-3xl overflow-hidden">
         <div className="h-2 bg-gradient-to-r from-elnusa-blue via-elnusa-yellow to-elnusa-blue"></div>
         <CardHeader className="text-center space-y-6 pt-10">
           <div className="mx-auto w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center shadow-xl rotate-3 hover:rotate-0 transition-transform duration-500 overflow-hidden p-2">

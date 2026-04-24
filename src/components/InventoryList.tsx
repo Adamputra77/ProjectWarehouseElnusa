@@ -10,7 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Search, Filter, MoreVertical, Download, QrCode, Edit, Trash2, Package } from 'lucide-react';
-import { WarehouseItem } from '@/types/warehouse';
+import { SparepartItem } from '@/types/warehouse';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -21,12 +21,12 @@ import {
 import { cn } from '@/lib/utils';
 
 interface InventoryListProps {
-  items: WarehouseItem[];
+  items: SparepartItem[];
   isAdmin?: boolean;
-  onItemClick: (item: WarehouseItem) => void;
-  onShowQR?: (item: WarehouseItem) => void;
-  onEdit?: (item: WarehouseItem) => void;
-  onDelete?: (item: WarehouseItem) => void;
+  onItemClick: (item: SparepartItem) => void;
+  onShowQR?: (item: SparepartItem) => void;
+  onEdit?: (item: SparepartItem) => void;
+  onDelete?: (item: SparepartItem) => void;
   onExport?: () => void;
   onPrintLabels?: () => void;
   selectedItems?: string[];
@@ -104,6 +104,7 @@ export function InventoryList({
                   onChange={() => onSelectAll?.(allSelected ? [] : filteredItems.map(i => i.id))}
                 />
               </TableHead>
+              <TableHead className="w-[40px] text-center">No</TableHead>
               <TableHead className="w-[80px]">Image</TableHead>
               <TableHead>Sparepart Name</TableHead>
               <TableHead>SKU</TableHead>
@@ -121,7 +122,7 @@ export function InventoryList({
                 </TableCell>
               </TableRow>
             ) : (
-              filteredItems.map((item) => (
+              filteredItems.map((item, index) => (
                 <TableRow 
                   key={item.id} 
                   className={cn(
@@ -138,6 +139,7 @@ export function InventoryList({
                       onChange={() => onToggleSelect?.(item.id)}
                     />
                   </TableCell>
+                  <TableCell className="text-center font-bold text-xs text-muted-foreground/60">{index + 1}</TableCell>
                   <TableCell>
                     <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden border shadow-sm">
                       {item.imageUrl ? (

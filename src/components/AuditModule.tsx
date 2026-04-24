@@ -26,11 +26,11 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { WarehouseItem, AuditSession, AuditRecord } from '@/types/warehouse';
+import { SparepartItem, AuditSession, AuditRecord } from '@/types/warehouse';
 import { format } from 'date-fns';
 
 interface AuditModuleProps {
-  items: WarehouseItem[];
+  items: SparepartItem[];
   activeSession: AuditSession | null;
   auditRecords: AuditRecord[];
   onStartAudit: () => void;
